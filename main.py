@@ -14,7 +14,17 @@ def fetch_today_games():
     response = requests.get(url)
     response.raise_for_status()
     games = response.json().get("results", [])
-    return [f"{game['name']} ({game.get('released', 'N/A')})" for game in games]
+    
+    formatted_games = []
+    for game in games:
+        name = game.get("name", "Unknown Title")
+        released = game.get("released", "N/A")
+        slug = game.get("slug")
+        url = f"https://rawg.io/games/{slug}" if slug else ""
+        markdown_link = f"[{name}]({url}) ({released})"
+        formatted_games.append(markdown_link)
+
+    return formatted_games
 
 def post_to_discord(games):
     if not games:
