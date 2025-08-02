@@ -1,40 +1,30 @@
+import os
 import requests
 from datetime import datetime
-import pytz
-import os
+from dotenv import load_dotenv
 
-WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
+load_dotenv()
 
-def fetch_games():
-    url = "https://games.api.opera.com/games"
+RAWG_API_KEY = os.getenv("RAWG_API_KEY")
+DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
+
+def fetch_today_games():
+    today = datetime.today().strftime('%Y-%m-%d')
+    url = f"https://api.rawg.io/api/games?dates={today},{today}&ordering=-added&page_size=10&key={RAWG_API_KEY}"
     response = requests.get(url)
     response.raise_for_status()
-    return response.json()
-
-def get_todays_games(games):
-    today = datetime.now(pytz.utc).date()
-    return [
-        game for game in games
-        if 'release_date' in game and
-        datetime.strptime(game['release_date'], '%Y-%m-%dT%H:%M:%SZ').date() == today
-    ]
+    games = response.json().get("results", [])
+    return [f"{game['name']} ({game.get('released', 'N/A')})" for game in games]
 
 def post_to_discord(games):
     if not games:
-        return
-    message = "**🎮 New Game Releases Today:**\n"
-    for game in games:
-        title = game.get('title', 'Unknown Title')
-        platforms = game.get('platforms', [])
-        platform_str = ", ".join(platforms)
-        message += f"- **{title}** ({platform_str})\n"
-    requests.post(WEBHOOK_URL, json={"content": message})
+        content = "No new game releases today."
+    else:
+        content = "**🎮 New Game Releases Today:**\n" + "\n".join(f"• {g}" for g in games)
 
-def main():
-    games = fetch_games()
-    todays_games = get_todays_games(games)
-    post_to_discord(todays_games)
+    data = {"content": content}
+    requests.post(DISCORD_WEBHOOK, json=data)
 
 if __name__ == "__main__":
-    main()
-# test commit
+    games = fetch_today_games()
+    post_to_discord(games)
